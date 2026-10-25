@@ -9,5 +9,6 @@
   "permissions": [
     "files",
     "processes"
-  ]
+  ],
+  "fullBleed": true
 }

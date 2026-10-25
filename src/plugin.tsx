@@ -1,6 +1,6 @@
 // Android: a connected phone's screen, live and clickable, its log, and screenshots, screen
 // recordings and app installs, all over adb.
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { ArrowLeft, Camera, Circle, Download, House, Power, Smartphone, Square, SquareStack, Volume1, Volume2 } from "lucide-react";
 import { configRead, configWrite } from "deck-plugin-sdk/bridge";
 import { EmptyState, IconButton, Select } from "deck-plugin-sdk/ui";
@@ -72,6 +72,16 @@ export default function Android() {
   const [status, setStatus] = useState("");
   const [, changed] = useReducer((n: number) => n + 1, 0);
   const [view, setView] = useView();
+  // Whether the device, the buttons and the switches fit on one row.
+  const root = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWide(el.clientWidth >= 720));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   // The phone's width over its height, from the first picture; a tall phone's until then.
   const [shape, setShape] = useState(1080 / 2340);
 
@@ -85,9 +95,28 @@ export default function Android() {
   }
   const key = (code: number) => () => void shell(serial, `input keyevent ${code}`).catch((e: unknown) => console.warn("[android] key failed", e));
   const recording = serial ? isRecording(serial) : false;
+  const buttons = (
+    <div className="flex flex-wrap items-center gap-0.5">
+      <IconButton title="Back" onClick={key(4)}><ArrowLeft size={14} /></IconButton>
+      <IconButton title="Home" onClick={key(3)}><House size={14} /></IconButton>
+      <IconButton title="Recent apps" onClick={key(187)}><SquareStack size={14} /></IconButton>
+      <span className="mx-1 h-4 w-px bg-[var(--border-subtle,#30363d)]" />
+      <IconButton title="Volume down" onClick={key(25)}><Volume1 size={14} /></IconButton>
+      <IconButton title="Volume up" onClick={key(24)}><Volume2 size={14} /></IconButton>
+      <IconButton title="Power (screen off or on)" onClick={key(26)}><Power size={14} /></IconButton>
+      <span className="mx-1 h-4 w-px bg-[var(--border-subtle,#30363d)]" />
+      <IconButton title="Screenshot" onClick={() => void screenshot(serial)}><Camera size={14} /></IconButton>
+      <IconButton title={recording ? "Stop recording" : "Record the screen"} active={recording}
+        onClick={() => void (recording ? stopRecording(serial, changed) : startRecording(serial, changed))}>
+        {recording ? <Square size={13} className="text-[#f85149]" /> : <Circle size={14} />}
+      </IconButton>
+      <IconButton title="Install an APK…" onClick={() => void installApk(serial)}><Download size={14} /></IconButton>
+      <span className="ml-1.5 text-[12px] tabular-nums text-text-muted">{status}</span>
+    </div>
+  );
   return (
     // Only the screen: no padding, no row, the screen as large as the pane allows.
-    <div className={"group relative flex h-full min-h-0 flex-col " + (view.controls || view.log ? "gap-1.5 p-1.5" : "")}>
+    <div ref={root} className={"group relative flex h-full min-h-0 flex-col " + (view.controls || view.log ? "gap-1.5 p-1.5" : "")}>
       {/* The two switches for what is shown sit in one place whatever is shown: the top right, at
           the end of the controls' row or of the log's, which keep room for them, or over the
           screen's corner when the screen is all there is (seen while the pointer is over the tab). */}
@@ -96,29 +125,18 @@ export default function Android() {
         <Switch label="Controls" on={view.controls} onClick={() => setView({ ...view, controls: !view.controls })} />
         <Switch label="Log" on={view.log} onClick={() => setView({ ...view, log: !view.log })} />
       </div>
-      {view.controls && <header className="flex h-8 shrink-0 items-center gap-1">
-        <>
-        <Select value={serial} onChange={(e) => setPick(e.target.value)} className="mr-1 w-52">
-          {ready.map((d) => <option key={d.serial} value={d.serial}>{d.model || d.serial}</option>)}
-        </Select>
-        <IconButton title="Back" onClick={key(4)}><ArrowLeft size={14} /></IconButton>
-        <IconButton title="Home" onClick={key(3)}><House size={14} /></IconButton>
-        <IconButton title="Recent apps" onClick={key(187)}><SquareStack size={14} /></IconButton>
-        <span className="mx-1 h-4 w-px bg-[var(--border-subtle,#30363d)]" />
-        <IconButton title="Volume down" onClick={key(25)}><Volume1 size={14} /></IconButton>
-        <IconButton title="Volume up" onClick={key(24)}><Volume2 size={14} /></IconButton>
-        <IconButton title="Power (screen off or on)" onClick={key(26)}><Power size={14} /></IconButton>
-        <span className="mx-1 h-4 w-px bg-[var(--border-subtle,#30363d)]" />
-        <IconButton title="Screenshot" onClick={() => void screenshot(serial)}><Camera size={14} /></IconButton>
-        <IconButton title={recording ? "Stop recording" : "Record the screen"} active={recording}
-          onClick={() => void (recording ? stopRecording(serial, changed) : startRecording(serial, changed))}>
-          {recording ? <Square size={13} className="text-[#f85149]" /> : <Circle size={14} />}
-        </IconButton>
-        <IconButton title="Install an APK…" onClick={() => void installApk(serial)}><Download size={14} /></IconButton>
-        <span className="ml-2 text-[12px] tabular-nums text-text-muted">{status}</span>
-        </>
-        {/* Room for the switches, which are drawn over this end of the row. */}
-        <span className="w-36 shrink-0" />
+      {/* The device and the switches' room on the top row; the buttons beside them when the pane
+          is wide enough, on a row of their own below when it is not, so nothing runs under the
+          switches. */}
+      {view.controls && <header className="flex shrink-0 flex-col gap-1">
+        <div className="flex h-8 items-center gap-1">
+          <Select value={serial} onChange={(e) => setPick(e.target.value)} className="mr-1 min-w-0 max-w-52 flex-1">
+            {ready.map((d) => <option key={d.serial} value={d.serial}>{d.model || d.serial}</option>)}
+          </Select>
+          {wide && buttons}
+          <span className="ml-auto w-36 shrink-0" />
+        </div>
+        {!wide && buttons}
       </header>}
       {serial && (
         <div className="flex min-h-0 flex-1 gap-1.5">

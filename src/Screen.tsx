@@ -9,8 +9,6 @@ import { forInputText } from "./parse";
 
 let seq = 0;
 
-/** How long the stream must stay quiet before the picture held back is taken as complete. */
-const QUIET_MS = 12;
 /** Keys sent as Android key events rather than typed. */
 const KEYS: Record<string, number> = {
   Enter: 66, Backspace: 67, Delete: 112, Tab: 61, Escape: 4,
@@ -50,7 +48,7 @@ export function Screen({ serial, onStatus, onShape }: { serial: string; onStatus
     const rate = 32_000_000 + (seq % 1000);
     const split = new Splitter();
     let decoder: VideoDecoder | null = null;
-    let started = false, stopped = false, quiet: ReturnType<typeof setTimeout> | undefined;
+    let started = false, stopped = false;
     let frames = 0, last = performance.now();
     setEnded("");
 
@@ -86,16 +84,16 @@ export function Screen({ serial, onStatus, onShape }: { serial: string; onStatus
       // No time limit (Android 11 and later take 0). 32 Mbit/s keeps a moving picture clean at full
       // resolution and is well within USB 2.
       const r = await procStreamBytes(id, exe, ["-s", serial, "exec-out", "screenrecord", "--output-format=h264", "--time-limit", "0", "--bit-rate", String(rate), "-"], (chunk) => {
-        decode(split.push(chunk));
-        clearTimeout(quiet);
-        quiet = setTimeout(() => decode(split.flush()), QUIET_MS);
+        // An empty chunk is Deck saying the phone has gone quiet, so the picture held back is whole.
+        // A timer here decoded pictures before their last chunk had arrived, and the picture stayed
+        // corrupted until the next key frame.
+        decode(chunk.length ? split.push(chunk) : split.flush());
       }).catch((e: unknown) => { console.warn("[android] the screen stream failed", e); return null; });
       if (!stopped) setEnded(r ? "The phone stopped sending its screen." : "The screen could not be started.");
     })();
 
     return () => {
       stopped = true;
-      clearTimeout(quiet);
       if (decoder && decoder.state !== "closed") decoder.close();
       if (!started) return;
       void procKill(id).catch(() => { /* already ended */ });
@@ -162,7 +160,7 @@ export function Screen({ serial, onStatus, onShape }: { serial: string; onStatus
     <div ref={box} className="relative grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden">
       <canvas ref={canvas} tabIndex={0} title="Click to tap, drag to swipe; with it focused, typing types on the phone"
         onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { press.current = null; }} onWheel={onWheel} onKeyDown={onKey}
-        className="cursor-pointer rounded-[18px] bg-black outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className="cursor-pointer bg-black outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         style={fit ? { width: fit.w, height: fit.h, touchAction: "none" } : { height: "100%", aspectRatio: "9 / 19.5" }} />
       {ended && (
         <div className="absolute inset-0 grid place-items-center">

@@ -57,9 +57,9 @@ export class Splitter {
   }
 
   /**
-   * The unit held back, as complete: call when the stream has gone quiet. A picture's slice is the
-   * last thing written for it, and it is held until a start code shows where it ends, which for
-   * the last change before the screen goes still would be never.
+   * The unit held back, as complete: call when the stream has gone quiet (procStreamBytes' empty
+   * chunk). A picture's slice is the last thing written for it, and it is held until a start code
+   * shows where it ends, which for the last change before the screen goes still would be never.
    */
   flush(): Picture[] {
     const out: Picture[] = [];
