@@ -13,6 +13,7 @@ const load = async (entry) => {
 };
 const h = await load("src/h264.ts");
 const p = await load("src/parse.ts");
+const m = await load("src/scrcpy-msg.ts");
 
 // ---- H.264 -----------------------------------------------------------------------------------
 const sc4 = [0, 0, 0, 1], sc3 = [0, 0, 1];
@@ -66,5 +67,20 @@ assert.equal(p.parseLine("--------- beginning of main"), null);
 assert.equal(p.forInputText("hello world"), "'hello%sworld'");
 assert.equal(p.forInputText("it's"), "'it'\\''s'", "a quote cannot end the quoting early");
 assert.equal(p.forInputText("$(reboot)"), "'$(reboot)'", "nothing in it runs");
+
+// ---- scrcpy control messages, as scrcpy 5.0.1 serializes them ---------------------------------
+const hex = (u) => Buffer.from(u).toString("hex");
+assert.equal(hex(m.keyMsg(0, 4)), "00" + "00" + "00000004" + "00000000" + "00000000", "a key: type, action, keycode, repeat, meta");
+assert.equal(hex(m.textMsg("hé")), "01" + "00000003" + "68c3a9", "text: type, UTF-8 length, UTF-8");
+assert.equal(m.textMsg("x".repeat(400)).length, 5 + 300, "text is cut at 300 bytes");
+assert.equal(hex(m.touchMsg(0, 540, 1170.4, 1080, 2340)),
+  "02" + "00" + "fffffffffffffffe" + "0000021c" + "00000492" + "0438" + "0924" + "ffff" + "00000000" + "00000000",
+  "a finger down: type, action, pointer -2, x, y, width, height, full pressure, no buttons");
+assert.equal(m.touchMsg(1, 0, 0, 1080, 2340).length, 32);
+assert.equal(hex(m.touchMsg(1, 0, 0, 1080, 2340)).slice(44, 48), "0000", "no pressure as the finger lifts");
+assert.equal(hex(m.scrollMsg(10, 20, 1080, 2340, 0, -1)),
+  "03" + "0000000a" + "00000014" + "0438" + "0924" + "0000" + "f800" + "00000000", "a scroll of one step down: -1/16 as a 16-bit fraction");
+assert.equal(m.scrollMsg(0, 0, 1, 1, 99, -99).subarray(13, 17).join(","), [0x7f, 0xff, 0x80, 0x00].join(","), "steps past 16 are held at the ends");
+assert.equal(hex(m.backOrScreenOnMsg(1)), "0401");
 
 console.log("android: all checks passed");
