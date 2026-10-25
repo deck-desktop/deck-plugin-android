@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { ArrowLeft, Camera, Circle, Download, House, Power, Smartphone, Square, SquareStack, Volume1, Volume2 } from "lucide-react";
 import { configRead, configWrite } from "deck-plugin-sdk/bridge";
 import { EmptyState, IconButton, Select } from "deck-plugin-sdk/ui";
-import { devices, shell, type Device } from "./adb";
+import { devices, findAdb, installAdb, shell, type Device } from "./adb";
 import { installApk, isRecording, screenshot, startRecording, stopRecording } from "./actions";
 import { Logcat } from "./Logcat";
 import { stopLogs } from "./logstore";
@@ -14,9 +14,10 @@ import { Screen } from "./Screen";
 export function dispose() { stopLogs(); }
 
 /** Devices, read again every few seconds while the tab is shown (a phone plugged in or out). */
-function useDevices(): Device[] | null {
+function useDevices(enabled: boolean): Device[] | null {
   const [list, setList] = useState<Device[] | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     const read = () => {
       if (document.hidden) return;
@@ -30,8 +31,25 @@ function useDevices(): Device[] | null {
     const vis = () => { if (!document.hidden) read(); };
     document.addEventListener("visibilitychange", vis);
     return () => { live = false; clearInterval(t); document.removeEventListener("visibilitychange", vis); };
-  }, []);
+  }, [enabled]);
   return list;
+}
+
+/** Whether there is an adb to run: undefined while looking, and the install that adds one. */
+function useAdb(): { found: boolean | undefined; installing: boolean; install: () => void; error: string } {
+  const [found, setFound] = useState<boolean | undefined>(undefined);
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { void findAdb().then((e) => setFound(!!e)); }, []);
+  const install = () => {
+    setInstalling(true);
+    setError("");
+    installAdb().then(() => setFound(true), (e: unknown) => {
+      console.warn("[android] adb could not be installed", e);
+      setError(String(e).replace(/^Error: /, ""));
+    }).finally(() => setInstalling(false));
+  };
+  return { found, installing, install, error };
 }
 
 /** What is shown beside the screen: its controls and the log. Each can go, to see only the screen. */
@@ -65,7 +83,8 @@ function Switch({ label, on, onClick }: { label: string; on: boolean; onClick: (
 }
 
 export default function Android() {
-  const list = useDevices();
+  const tools = useAdb();
+  const list = useDevices(tools.found === true);
   const ready = (list ?? []).filter((d) => d.state === "device");
   const [pick, setPick] = useState("");
   const serial = ready.find((d) => d.serial === pick)?.serial ?? ready[0]?.serial ?? "";
@@ -85,6 +104,20 @@ export default function Android() {
   // The phone's width over its height, from the first picture; a tall phone's until then.
   const [shape, setShape] = useState(1080 / 2340);
 
+  if (tools.found === false) {
+    return (
+      <EmptyState icon={<Smartphone size={18} />} title="adb is not installed"
+        action={tools.installing ? undefined : { label: "Install adb", onClick: tools.install }}>
+        {tools.installing
+          ? "Downloading Google's platform tools (about 8 MB)…"
+          : <>
+            This tab reaches the phone through adb, from Google's Android platform tools. Install puts
+            them in this plugin's own folder; nothing is changed on the rest of the PC.
+            {tools.error && <span className="mt-2 block text-[#f85149]">{tools.error}</span>}
+          </>}
+      </EmptyState>
+    );
+  }
   if (list && !ready.length) {
     const waiting = list.find((d) => d.state === "unauthorized");
     return (
