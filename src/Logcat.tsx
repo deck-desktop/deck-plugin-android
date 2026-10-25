@@ -2,12 +2,15 @@
 // restarts by its process ids), and a search. It keeps to the bottom while new lines arrive, unless
 // you have scrolled up to read.
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Eraser } from "lucide-react";
-import { IconButton, Segmented, TextInput } from "deck-plugin-sdk/ui";
+import { Eraser, Filter } from "lucide-react";
+import { IconButton } from "deck-plugin-sdk/ui";
 import { shell } from "./adb";
 import { clearLog, startLog, useLog, type LogLine } from "./logstore";
 
 const LEVELS = ["V", "D", "I", "W", "E"] as const;
+const NAMES: Record<(typeof LEVELS)[number], string> = { V: "Verbose", D: "Debug", I: "Info", W: "Warnings", E: "Errors" };
+/** A small field, so the row fits a narrow pane. */
+const FIELD = "h-6 rounded-md border border-subtle bg-elev px-2 text-[12px] text-text-primary outline-none placeholder:text-text-muted focus:border-[var(--accent)]";
 const RANK: Record<LogLine["level"], number> = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5 };
 const COLOR: Record<LogLine["level"], string> = {
   V: "var(--text-muted)", D: "var(--text-secondary)", I: "var(--text-primary)", W: "#e3b341", E: "#f85149", F: "#f85149",
@@ -57,6 +60,7 @@ export function Logcat({ serial, roomForSwitches }: { serial: string; roomForSwi
   const [level, setLevel] = useState<(typeof LEVELS)[number]>("I");
   const [pkg, setPkg] = useState("");
   const [query, setQuery] = useState("");
+  const [appOpen, setAppOpen] = useState(false);
   const pids = usePids(serial, pkg);
 
   const shown = useMemo(() => {
@@ -79,15 +83,29 @@ export function Logcat({ serial, roomForSwitches }: { serial: string; roomForSwi
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-subtle">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-2 py-1.5">
-        <Segmented value={level} onChange={setLevel} layoutId="android-level" options={LEVELS.map((l) => ({ value: l, label: l }))} />
-        <TextInput value={pkg} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPkg(e.target.value)} placeholder="App, e.g. com.example.app" className="w-56" />
-        <TextInput value={query} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)} placeholder="Search" className="w-40" />
-        <span className="text-[11.5px] text-text-muted">
-          {pkg.trim() && pids?.size === 0 ? "not running" : log.error || `${shown.length.toLocaleString()} lines`}
+      {/* One row at any width: the level, a search that takes what room there is, the app filter
+          behind its button (open while it has an app), the count and Clear. */}
+      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-subtle px-1.5">
+        <div className="flex shrink-0 rounded-md bg-elev p-0.5" role="radiogroup" aria-label="Lowest level shown">
+          {LEVELS.map((l) => (
+            <button key={l} role="radio" aria-checked={level === l} onClick={() => setLevel(l)} title={`${NAMES[l]} and above`}
+              className={"h-6 w-6 rounded text-[11px] font-medium " + (level === l ? "bg-[var(--accent-soft)] text-text-primary" : "text-text-muted hover:text-text-secondary")}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" spellCheck={false}
+          className={FIELD + " min-w-12 flex-1"} />
+        {appOpen || pkg ? (
+          <input autoFocus={appOpen && !pkg} value={pkg} onChange={(e) => setPkg(e.target.value)} onBlur={() => setAppOpen(false)}
+            placeholder="com.example.app" spellCheck={false} title="Only this app's lines" className={FIELD + " w-40 min-w-16 shrink"} />
+        ) : (
+          <IconButton title="Only one app's lines…" onClick={() => setAppOpen(true)}><Filter size={13} /></IconButton>
+        )}
+        <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-text-muted">
+          {pkg.trim() && pids?.size === 0 ? "not running" : log.error || shown.length.toLocaleString()}
         </span>
-        <span className="flex-1" />
-        <IconButton title="Clear the log" onClick={() => clearLog(serial)}><Eraser size={14} /></IconButton>
+        <IconButton title="Clear the log" onClick={() => clearLog(serial)}><Eraser size={13} /></IconButton>
         {roomForSwitches && <span className="w-36 shrink-0" />}
       </div>
       <div ref={scroller} className="scroll-thin min-h-0 flex-1 overflow-y-auto py-1"
