@@ -1,0 +1,13 @@
+{
+  "id": "android",
+  "name": "Android",
+  "description": "A connected phone: its screen live and clickable, its log, screenshots, screen recordings and app installs, over adb.",
+  "icon": "Smartphone",
+  "color": "#3ddc84",
+  "version": "0.1.0",
+  "minDeck": "1.11.0",
+  "permissions": [
+    "files",
+    "processes"
+  ]
+}

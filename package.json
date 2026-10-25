@@ -1,0 +1,19 @@
+{
+  "name": "deck-plugin-android",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "deck-plugin build",
+    "dev": "deck-plugin dev",
+    "install-local": "deck-plugin install",
+    "test": "node android.check.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "deck-plugin-sdk": "file:../../deck/sdk",
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "esbuild": "^0.28.2"
+  },
+  "version": "0.1.0"
+}
