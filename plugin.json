@@ -5,7 +5,7 @@
   "icon": "Smartphone",
   "color": "#3ddc84",
   "version": "0.1.0",
-  "minDeck": "1.11.0",
+  "minDeck": "1.11.1",
   "permissions": [
     "files",
     "network",
