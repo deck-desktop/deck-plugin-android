@@ -59,7 +59,8 @@ export async function startSession(serial: string, onVideo: (chunk: Uint8Array) 
   const options = [
     `scid=${scid}`, "log_level=info", "audio=false", "control=true", "tunnel_forward=true",
     "send_device_meta=false", "send_frame_meta=false", "send_stream_meta=false", "send_dummy_byte=true",
-    "video_bit_rate=16000000", "max_fps=60", "clipboard_autosync=false", "cleanup=true",
+    // A phone over Wi-Fi gets half the bit rate: a busy network stutters long before USB does.
+    `video_bit_rate=${/:|._tcp/.test(serial) ? 8_000_000 : 16_000_000}`, "max_fps=60", "clipboard_autosync=false", "cleanup=true",
   ].join(" ");
   const exe = await adb();
   const server = procStream(ids.server, exe, ["-s", serial, "shell", `CLASSPATH=${ON_PHONE} app_process / com.genymobile.scrcpy.Server ${VERSION} ${options}`]);

@@ -37,3 +37,23 @@ export function parseLine(line: string): Omit<LogLine, "n"> | null {
 
 /** `input text` takes no spaces (%s stands for one) and goes through the phone's shell, so it is quoted for it. */
 export const forInputText = (s: string) => `'${s.replace(/ /g, "%s").replace(/'/g, "'\\''")}'`;
+
+export interface Service {
+  /** "adb-R5CY207JF2V-AbCdEf": the phone's serial is in it, which ties a pairing to its connection. */
+  name: string;
+  /** "connect" for a phone ready to connect to (already paired), "pair" while its pairing code is on screen. */
+  kind: "connect" | "pair";
+  /** "192.168.1.5:37111". */
+  address: string;
+}
+
+/** `adb mdns services`: phones with Wireless debugging on, on this network, one service per line. */
+export function parseMdns(text: string): Service[] {
+  const out: Service[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const [name, type, address] = line.trim().split(/\s+/);
+    const kind = type === "_adb-tls-connect._tcp" ? "connect" : type === "_adb-tls-pairing._tcp" ? "pair" : null;
+    if (kind && name && /^[\d.]+:\d+$|^\[[\da-f:]+\]:\d+$/i.test(address ?? "")) out.push({ name, kind, address });
+  }
+  return out;
+}

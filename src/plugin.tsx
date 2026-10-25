@@ -9,6 +9,7 @@ import { installApk, isRecording, screenshot, startRecording, stopRecording } fr
 import { Logcat } from "./Logcat";
 import { stopLogs } from "./logstore";
 import { Screen } from "./Screen";
+import { Wireless } from "./Wireless";
 
 /** Before a reload imports the plugin again (Deck's rule 13): the logs run at module scope. */
 export function dispose() { stopLogs(); }
@@ -122,7 +123,8 @@ export default function Android() {
     const waiting = list.find((d) => d.state === "unauthorized");
     return (
       <EmptyState icon={<Smartphone size={18} />} title="No phone">
-        {waiting ? "Allow USB debugging on the phone: it is asking whether to trust this PC." : "Plug in a phone with USB debugging on, in Developer options."}
+        {waiting ? "Allow USB debugging on the phone: it is asking whether to trust this PC." : "Plug in a phone with USB debugging on, in Developer options, or connect one over Wi-Fi:"}
+        <div className="mt-3"><Wireless /></div>
       </EmptyState>
     );
   }

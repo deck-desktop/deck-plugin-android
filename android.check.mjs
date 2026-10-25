@@ -63,6 +63,17 @@ assert.deepEqual(p.parseLine("10-25 13:09:01.123  1234  5678 W ActivityManager: 
 assert.equal(p.parseLine("10-25 13:09:01.123  1234  5678 I flutter : hello: world").msg, "hello: world", "the first ': ' ends the tag");
 assert.equal(p.parseLine("--------- beginning of main"), null);
 
+assert.deepEqual(p.parseMdns([
+  "List of discovered mdns services",
+  "adb-R5CY207JF2V-AbCdEf\t_adb-tls-connect._tcp\t192.168.1.5:37111",
+  "adb-R5CY207JF2V-AbCdEf\t_adb-tls-pairing._tcp\t192.168.1.5:41234",
+  "something\t_other._tcp\t1.2.3.4:5",
+].join("\n")), [
+  { name: "adb-R5CY207JF2V-AbCdEf", kind: "connect", address: "192.168.1.5:37111" },
+  { name: "adb-R5CY207JF2V-AbCdEf", kind: "pair", address: "192.168.1.5:41234" },
+], "phones ready to connect and phones showing a pairing code, nothing else");
+assert.deepEqual(p.parseMdns("List of discovered mdns services\n"), []);
+
 // ---- text for the phone's shell --------------------------------------------------------------
 assert.equal(p.forInputText("hello world"), "'hello%sworld'");
 assert.equal(p.forInputText("it's"), "'it'\\''s'", "a quote cannot end the quoting early");

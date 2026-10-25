@@ -4,7 +4,7 @@
 // Android Studio's SDK, in that order. Without one, the tab offers to install Google's platform
 // tools into the plugin's data folder: nothing system-wide.
 import { dataDir, exec, fsDelete, fsHomeDir, fsWriteBytes, httpSend } from "deck-plugin-sdk/bridge";
-import { parseDevices, type Device } from "./parse";
+import { parseDevices, parseMdns, type Device } from "./parse";
 
 export type { Device };
 
@@ -69,3 +69,19 @@ export async function run(args: string[]): Promise<string> {
 export const shell = (serial: string, command: string) => run(["-s", serial, "shell", command]);
 
 export const devices = () => run(["devices", "-l"]).then(parseDevices);
+
+/** Phones with Wireless debugging on, on this network, that adb's mDNS has found. */
+export const wireless = () => run(["mdns", "services"]).then(parseMdns);
+
+/** Connect to a phone over Wi-Fi. adb says how it went in what it prints, not in its exit code. */
+export async function connectWireless(address: string): Promise<void> {
+  const out = await run(["connect", address]);
+  if (!/connected to/i.test(out)) throw new Error(out.trim() || `could not connect to ${address}`);
+}
+
+/** Pair with a phone showing a pairing code (Wireless debugging › Pair device with pairing code). */
+export async function pairWireless(address: string, code: string): Promise<void> {
+  const r = (await exec(await adb(), ["pair", address, code])) as { stdout: string; stderr: string };
+  const out = `${r.stdout}\n${r.stderr}`;
+  if (!/successfully paired/i.test(out)) throw new Error(out.replace(/\s+/g, " ").trim() || "the phone did not pair");
+}
