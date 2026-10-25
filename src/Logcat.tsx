@@ -50,7 +50,8 @@ function usePids(serial: string, pkg: string): Set<number> | null {
   return pids;
 }
 
-export function Logcat({ serial }: { serial: string }) {
+/** `roomForSwitches`: the tab's Controls and Log switches are drawn over the end of the filter row. */
+export function Logcat({ serial, roomForSwitches }: { serial: string; roomForSwitches?: boolean }) {
   useEffect(() => startLog(serial), [serial]);
   const log = useLog(serial);
   const [level, setLevel] = useState<(typeof LEVELS)[number]>("I");
@@ -87,6 +88,7 @@ export function Logcat({ serial }: { serial: string }) {
         </span>
         <span className="flex-1" />
         <IconButton title="Clear the log" onClick={() => clearLog(serial)}><Eraser size={14} /></IconButton>
+        {roomForSwitches && <span className="w-36 shrink-0" />}
       </div>
       <div ref={scroller} className="scroll-thin min-h-0 flex-1 overflow-y-auto py-1"
         onScroll={(e) => { const s = e.currentTarget; atEnd.current = s.scrollHeight - s.scrollTop - s.clientHeight < 24; }}>

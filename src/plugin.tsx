@@ -72,6 +72,8 @@ export default function Android() {
   const [status, setStatus] = useState("");
   const [, changed] = useReducer((n: number) => n + 1, 0);
   const [view, setView] = useView();
+  // The phone's width over its height, from the first picture; a tall phone's until then.
+  const [shape, setShape] = useState(1080 / 2340);
 
   if (list && !ready.length) {
     const waiting = list.find((d) => d.state === "unauthorized");
@@ -85,12 +87,12 @@ export default function Android() {
   const recording = serial ? isRecording(serial) : false;
   return (
     // Only the screen: no padding, no row, the screen as large as the pane allows.
-    <div className={"group relative flex h-full min-h-0 flex-col " + (view.controls || view.log ? "gap-2 p-3" : "")}>
-      {/* The two switches for what is shown sit in one place whatever is shown: the top right,
-          at the end of the controls' row, or over the screen's corner when that row is hidden
-          (seen while the pointer is over the tab). */}
-      <div className={"absolute right-3 top-3 z-10 flex h-8 items-center gap-1 transition-opacity "
-        + (view.controls ? "" : "rounded-lg bg-[var(--bg-elev)] px-0.5 opacity-0 shadow group-hover:opacity-100")}>
+    <div className={"group relative flex h-full min-h-0 flex-col " + (view.controls || view.log ? "gap-1.5 p-1.5" : "")}>
+      {/* The two switches for what is shown sit in one place whatever is shown: the top right, at
+          the end of the controls' row or of the log's, which keep room for them, or over the
+          screen's corner when the screen is all there is (seen while the pointer is over the tab). */}
+      <div className={"absolute right-1.5 top-1.5 z-10 flex h-8 items-center gap-1 transition-opacity "
+        + (view.controls || view.log ? "" : "rounded-lg bg-[var(--bg-elev)] px-0.5 opacity-0 shadow group-hover:opacity-100")}>
         <Switch label="Controls" on={view.controls} onClick={() => setView({ ...view, controls: !view.controls })} />
         <Switch label="Log" on={view.log} onClick={() => setView({ ...view, log: !view.log })} />
       </div>
@@ -119,11 +121,14 @@ export default function Android() {
         <span className="w-36 shrink-0" />
       </header>}
       {serial && (
-        <div className="flex min-h-0 flex-1 gap-3">
-          <div className={"flex min-h-0 flex-col " + (view.log ? "w-[38%] min-w-[220px] max-w-[520px]" : "flex-1")}>
-            <Screen key={serial} serial={serial} onStatus={setStatus} />
+        <div className="flex min-h-0 flex-1 gap-1.5">
+          {/* Beside the log, the screen's column is as wide as the phone is at the pane's full
+              height, up to most of the width; the log has the rest. */}
+          <div className={"flex min-h-0 min-w-0 flex-col " + (view.log ? "shrink-0" : "flex-1")}
+            style={view.log ? { height: "100%", aspectRatio: shape, maxWidth: "62%" } : undefined}>
+            <Screen key={serial} serial={serial} onStatus={setStatus} onShape={setShape} />
           </div>
-          {view.log && <Logcat serial={serial} />}
+          {view.log && <Logcat serial={serial} roomForSwitches={!view.controls} />}
         </div>
       )}
     </div>

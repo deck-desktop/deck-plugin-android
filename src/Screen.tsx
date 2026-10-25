@@ -17,7 +17,7 @@ const KEYS: Record<string, number> = {
   ArrowUp: 19, ArrowDown: 20, ArrowLeft: 21, ArrowRight: 22, Home: 122, End: 123,
 };
 
-export function Screen({ serial, onStatus }: { serial: string; onStatus: (s: string) => void }) {
+export function Screen({ serial, onStatus, onShape }: { serial: string; onStatus: (s: string) => void; onShape?: (widthOverHeight: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -58,6 +58,7 @@ export function Screen({ serial, onStatus }: { serial: string; onStatus: (s: str
       if (c.width !== f.displayWidth || c.height !== f.displayHeight) {
         c.width = f.displayWidth; c.height = f.displayHeight;
         setSize({ w: f.displayWidth, h: f.displayHeight });
+        onShape?.(f.displayWidth / f.displayHeight);
       }
       ctx?.drawImage(f, 0, 0);
       f.close();
