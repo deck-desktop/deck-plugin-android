@@ -1,7 +1,7 @@
 // Android: a connected phone's screen, live and clickable, its log, and screenshots, screen
 // recordings and app installs, all over adb.
 import { useEffect, useReducer, useState } from "react";
-import { ArrowLeft, Camera, Circle, Download, House, PanelRightClose, PanelRightOpen, PanelTopClose, PanelTopOpen, Power, Smartphone, Square, SquareStack, Volume1, Volume2 } from "lucide-react";
+import { ArrowLeft, Camera, Circle, Download, House, Power, Smartphone, Square, SquareStack, Volume1, Volume2 } from "lucide-react";
 import { configRead, configWrite } from "deck-plugin-sdk/bridge";
 import { EmptyState, IconButton, Select } from "deck-plugin-sdk/ui";
 import { devices, shell, type Device } from "./adb";
@@ -54,6 +54,16 @@ function useView(): [View, (v: View) => void] {
   return [view, set];
 }
 
+/** A part of the view, on or off: its name, lit while it is shown. */
+function Switch({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} title={(on ? "Hide the " : "Show the ") + label.toLowerCase()}
+      className={"h-7 rounded-md px-2.5 text-[12px] transition-colors " + (on ? "bg-[var(--accent-soft)] text-text-primary" : "text-text-muted hover:bg-white/5 hover:text-text-secondary")}>
+      {label}
+    </button>
+  );
+}
+
 export default function Android() {
   const list = useDevices();
   const ready = (list ?? []).filter((d) => d.state === "device");
@@ -74,8 +84,18 @@ export default function Android() {
   const key = (code: number) => () => void shell(serial, `input keyevent ${code}`).catch((e: unknown) => console.warn("[android] key failed", e));
   const recording = serial ? isRecording(serial) : false;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
-      {view.controls && <header className="flex shrink-0 items-center gap-1">
+    // Only the screen: no padding, no row, the screen as large as the pane allows.
+    <div className={"group relative flex h-full min-h-0 flex-col " + (view.controls || view.log ? "gap-2 p-3" : "")}>
+      {/* The two switches for what is shown sit in one place whatever is shown: the top right,
+          at the end of the controls' row, or over the screen's corner when that row is hidden
+          (seen while the pointer is over the tab). */}
+      <div className={"absolute right-3 top-3 z-10 flex h-8 items-center gap-1 transition-opacity "
+        + (view.controls ? "" : "rounded-lg bg-[var(--bg-elev)] px-0.5 opacity-0 shadow group-hover:opacity-100")}>
+        <Switch label="Controls" on={view.controls} onClick={() => setView({ ...view, controls: !view.controls })} />
+        <Switch label="Log" on={view.log} onClick={() => setView({ ...view, log: !view.log })} />
+      </div>
+      {view.controls && <header className="flex h-8 shrink-0 items-center gap-1">
+        <>
         <Select value={serial} onChange={(e) => setPick(e.target.value)} className="mr-1 w-52">
           {ready.map((d) => <option key={d.serial} value={d.serial}>{d.model || d.serial}</option>)}
         </Select>
@@ -94,25 +114,14 @@ export default function Android() {
         </IconButton>
         <IconButton title="Install an APK…" onClick={() => void installApk(serial)}><Download size={14} /></IconButton>
         <span className="ml-2 text-[12px] tabular-nums text-text-muted">{status}</span>
-        <span className="flex-1" />
-        <IconButton title={view.log ? "Hide the log" : "Show the log"} onClick={() => setView({ ...view, log: !view.log })}>
-          {view.log ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-        </IconButton>
-        <IconButton title="Hide the controls" onClick={() => setView({ ...view, controls: false })}><PanelTopClose size={14} /></IconButton>
+        </>
+        {/* Room for the switches, which are drawn over this end of the row. */}
+        <span className="w-36 shrink-0" />
       </header>}
       {serial && (
         <div className="flex min-h-0 flex-1 gap-3">
-          <div className={"group relative flex min-h-0 flex-col " + (view.log ? "w-[38%] min-w-[220px] max-w-[520px]" : "flex-1")}>
+          <div className={"flex min-h-0 flex-col " + (view.log ? "w-[38%] min-w-[220px] max-w-[520px]" : "flex-1")}>
             <Screen key={serial} serial={serial} onStatus={setStatus} />
-            {!view.controls && (
-              // Only the screen: the controls come back from here, shown while the pointer is over it.
-              <div className="absolute right-1 top-1 flex gap-1 rounded-lg bg-[var(--bg-elev)] opacity-0 shadow transition-opacity group-hover:opacity-100">
-                <IconButton title="Show the controls" onClick={() => setView({ ...view, controls: true })}><PanelTopOpen size={14} /></IconButton>
-                <IconButton title={view.log ? "Hide the log" : "Show the log"} onClick={() => setView({ ...view, log: !view.log })}>
-                  {view.log ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-                </IconButton>
-              </div>
-            )}
           </div>
           {view.log && <Logcat serial={serial} />}
         </div>

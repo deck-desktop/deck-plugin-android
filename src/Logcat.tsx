@@ -17,11 +17,13 @@ const SHOWN = 2000;
 
 const Row = memo(function Row({ l }: { l: LogLine }) {
   return (
-    <div className="flex gap-2 whitespace-pre-wrap break-all px-2 font-mono text-[11.5px] leading-[17px]" style={{ color: COLOR[l.level] }}>
-      <span className="shrink-0 text-text-muted">{l.time.slice(6)}</span>
-      <span className="w-3 shrink-0">{l.level}</span>
-      <span className="w-40 shrink-0 truncate text-text-secondary" title={l.tag}>{l.tag}</span>
-      <span className="min-w-0 flex-1">{l.msg}</span>
+    // One run of text, as logcat prints it, so a long message wraps under the whole width rather
+    // than down a column beside the time and tag, which in a narrow pane left it a few letters wide.
+    <div className="whitespace-pre-wrap break-words px-2 font-mono text-[11.5px] leading-[17px]" style={{ color: COLOR[l.level] }}>
+      <span className="text-text-muted">{l.time.slice(6)} </span>
+      <span>{l.level} </span>
+      <span className="text-text-secondary">{l.tag}: </span>
+      {l.msg}
     </div>
   );
 });
