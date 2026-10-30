@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
-    "deck-plugin-sdk": "^1.12.1",
+    "deck-plugin-sdk": "^1.13.0",
     "esbuild": "^0.28.2",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
