@@ -4,6 +4,8 @@ The phone plugged into your PC, or connected over Wi-Fi, in a tab: its screen, l
 hands, its log beside it, and the things you reach for while developing an app. Open it from the
 **+** beside your tabs and choose **Android**.
 
+![Android](docs/screenshot.png)
+
 ## What it does
 
 - **The phone's screen, live,** at up to 60 frames a second. Deck runs
