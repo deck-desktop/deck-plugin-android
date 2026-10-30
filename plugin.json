@@ -8,8 +8,8 @@
   "minDeck": "1.11.1",
   "permissions": [
     "files",
-    "network",
-    "processes"
+    "processes",
+    "network"
   ],
   "fullBleed": true
 }
