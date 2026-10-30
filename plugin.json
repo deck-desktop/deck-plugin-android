@@ -4,7 +4,7 @@
   "description": "A connected phone: its screen live and clickable, its log, screenshots, screen recordings and app installs, over adb.",
   "icon": "Smartphone",
   "color": "#3ddc84",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minDeck": "1.11.1",
   "permissions": [
     "files",
