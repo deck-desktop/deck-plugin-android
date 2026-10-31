@@ -9,7 +9,7 @@
 //
 // The protocol is scrcpy's internal one and changes between versions, so the client here is for
 // exactly this server version: the server refuses any other.
-import { dataDir, fsHash, fsWriteBytes, httpSend, procKill, procStream, tcpClose, tcpStreamBytes, tcpWrite } from "deck-plugin-sdk/bridge";
+import { dataDir, fsHash, fsWriteBytes, httpSend, isWindows, procKill, procStream, tcpClose, tcpStreamBytes, tcpWrite } from "deck-plugin-sdk/bridge";
 import { adb, run } from "./adb";
 
 const VERSION = "5.0.1";
@@ -21,7 +21,7 @@ let local: Promise<string> | null = null;
 /** The server file on this PC, downloaded and checked the first time. */
 function serverFile(): Promise<string> {
   local ??= (async () => {
-    const path = `${await dataDir()}\\scrcpy-server-v${VERSION}`;
+    const path = `${await dataDir()}${isWindows() ? "\\" : "/"}scrcpy-server-v${VERSION}`;
     if ((await fsHash([path]))[0] === SHA256) return path;
     const r = await httpSend({ method: "GET", url: URL });
     if (r.status !== 200 || !r.body_b64) throw new Error(`scrcpy's server could not be downloaded (${r.status} ${r.status_text})`);
