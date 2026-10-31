@@ -3,13 +3,16 @@
 // Found on PATH, in this plugin's own copy (installed from the tab when there is no other), or in
 // Android Studio's SDK, in that order. Without one, the tab offers to install Google's platform
 // tools into the plugin's data folder: nothing system-wide.
-import { dataDir, exec, fsDelete, fsHomeDir, fsWriteBytes, httpSend } from "deck-plugin-sdk/bridge";
+import { dataDir, exec, fsDelete, fsHomeDir, fsWriteBytes, httpSend, isWindows } from "deck-plugin-sdk/bridge";
 import { parseDevices, parseMdns, type Device } from "./parse";
 
 export type { Device };
 
-/** Google's platform tools for Windows, always its newest release. */
-const PLATFORM_TOOLS = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip";
+/** Google's platform tools for this system, always its newest release. */
+const platformTools = () => `https://dl.google.com/android/repository/platform-tools-latest-${isWindows() ? "windows" : "linux"}.zip`;
+/** A path under `dir`, with the system's own separator; adb is adb.exe on Windows. */
+const under = (dir: string, ...parts: string[]) => [dir, ...parts].join(isWindows() ? "\\" : "/");
+const ADB = () => (isWindows() ? "adb.exe" : "adb");
 
 const runs = (program: string) =>
   exec(program, ["version"]).then((r: { code: number }) => r.code === 0, () => false);
@@ -19,9 +22,11 @@ let exe: Promise<string | null> | null = null;
 export function findAdb(): Promise<string | null> {
   exe ??= (async () => {
     if (await runs("adb")) return "adb";
-    const own = `${await dataDir()}\\platform-tools\\adb.exe`;
+    const own = under(await dataDir(), "platform-tools", ADB());
     if (await runs(own)) return own;
-    const studio = `${await fsHomeDir()}\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe`;
+    // Android Studio's SDK: under AppData on Windows, ~/Android/Sdk elsewhere.
+    const sdk = isWindows() ? ["AppData", "Local", "Android", "Sdk"] : ["Android", "Sdk"];
+    const studio = under(await fsHomeDir(), ...sdk, "platform-tools", ADB());
     if (await runs(studio)) return studio;
     return null;
   })();
@@ -40,15 +45,20 @@ export async function adb(): Promise<string> {
 /** Download Google's platform tools and unpack them into this plugin's data folder. */
 export async function installAdb(): Promise<string> {
   const dir = await dataDir();
-  const zip = `${dir}\\platform-tools.zip`;
-  const r = await httpSend({ method: "GET", url: PLATFORM_TOOLS });
+  const zip = under(dir, "platform-tools.zip");
+  const r = await httpSend({ method: "GET", url: platformTools() });
   if (r.status !== 200 || !r.body_b64) throw new Error(`the platform tools could not be downloaded (${r.status} ${r.status_text})`);
   if (r.truncated) throw new Error("the platform tools are larger than Deck downloads in one go");
   await fsWriteBytes(zip, Uint8Array.from(atob(r.body_b64), (c) => c.charCodeAt(0)));
   try {
-    // Windows' own tar reads a zip.
-    const x = (await exec("tar", ["-xf", zip, "-C", dir])) as { code: number; stderr: string };
+    // Windows' own tar reads a zip. Linux's GNU tar does not: unzip, or Python's zipfile, which
+    // keeps no file modes, so adb is made executable after.
+    type Out = { code: number; stderr: string };
+    let x = (isWindows() ? await exec("tar", ["-xf", zip, "-C", dir])
+      : await exec("unzip", ["-oq", zip, "-d", dir]).catch(() => ({ code: -1, stderr: "" }))) as Out;
+    if (x.code !== 0 && !isWindows()) x = (await exec("python3", ["-m", "zipfile", "-e", zip, dir])) as Out;
     if (x.code !== 0) throw new Error(`the platform tools could not be unpacked: ${x.stderr.trim()}`);
+    if (!isWindows()) await exec("chmod", ["+x", under(dir, "platform-tools", "adb")]);
   } finally {
     await fsDelete(zip).catch(() => { /* unpacked or not, the zip is not needed */ });
   }

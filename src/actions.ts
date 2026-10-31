@@ -1,6 +1,6 @@
 // What the toolbar does on the phone: screenshots, screen recordings and installing an app. Files
 // land in Pictures\Android and Videos\Android, said in a notification with a button to open them.
-import { fsCreateDir, fsHomeDir, fsOpen, fsWriteBytes, pickFile, procStream, procStreamBytes } from "deck-plugin-sdk/bridge";
+import { fsCreateDir, fsHomeDir, fsOpen, fsWriteBytes, isWindows, pickFile, procStream, procStreamBytes } from "deck-plugin-sdk/bridge";
 import { notify } from "deck-plugin-sdk/ui";
 import { adb, run, shell } from "./adb";
 
@@ -10,11 +10,14 @@ let seq = 0;
 // Local time, as a file name can hold it: 2026-10-25 13.15.20.
 const stamp = () => { const d = new Date(), p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`; };
 
-/** `~\<kind>\Android`, made when it is not there yet. */
+/** The system's path separator: a backslash on Windows, a slash elsewhere. */
+const SEP = () => (isWindows() ? "\\" : "/");
+
+/** `~\<kind>\Android` (`~/<kind>/Android` off Windows), made when it is not there yet. */
 async function folder(kind: "Pictures" | "Videos"): Promise<string> {
-  const parent = `${await fsHomeDir()}\\${kind}`;
+  const parent = `${await fsHomeDir()}${SEP()}${kind}`;
   await fsCreateDir(parent, "Android").catch(() => { /* already there */ });
-  return `${parent}\\Android`;
+  return `${parent}${SEP()}Android`;
 }
 
 const saved = (title: string, path: string) =>
@@ -33,7 +36,7 @@ export async function screenshot(serial: string) {
     let at = 0;
     for (const p of parts) { png.set(p, at); at += p.length; }
     if (r.code !== 0 || png.length < 8) throw new Error("the phone sent no picture");
-    const path = `${await folder("Pictures")}\\Screenshot ${stamp()}.png`;
+    const path = `${await folder("Pictures")}${SEP()}Screenshot ${stamp()}.png`;
     await fsWriteBytes(path, png);
     saved("Screenshot saved", path);
   } catch (e) { failed("The screenshot failed", e); }
@@ -69,7 +72,7 @@ async function finish(serial: string, done: Promise<unknown>, changed: () => voi
   changed();
   try {
     await done;
-    const path = `${await folder("Videos")}\\Screen recording ${stamp()}.mp4`;
+    const path = `${await folder("Videos")}${SEP()}Screen recording ${stamp()}.mp4`;
     await run(["-s", serial, "pull", ON_PHONE, path]);
     saved("Screen recording saved", path);
   } catch (e) { failed("The recording could not be saved", e); }
